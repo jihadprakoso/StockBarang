@@ -1,32 +1,36 @@
 <?php
 require 'function.php';
 
-// Cek login
-if(isset($_POST['login'])){
-    $email = $_POST['email'];
-    $password = $_POST['password'];
+$error = '';
 
-    // cocokin dengan database, cari ada atau engga ada tuh data
-    $cekdatabase = mysqli_query($conn, "SELECT * FROM login WHERE email='$email' AND password='$password'");
-    //hitung jumlah data
-    $hitung = mysqli_num_rows($cekdatabase);
+// Proses login
+if (isset($_POST['login'])) {
+    verify_csrf();
 
-    if($hitung>0){
-        $_SESSION['log'] = 'True';
-        header('location:index.php');
-    }else{
-        header('location:login.php');
-    };
-};
+    $email    = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
 
-if(!isset($_SESSION['log'])){
-   
-} else {
-    header('location:index.php');
-};
+    $stmt = mysqli_prepare($conn, "SELECT id, email, password FROM login WHERE email = ? LIMIT 1");
+    mysqli_stmt_bind_param($stmt, 's', $email);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $user   = mysqli_fetch_assoc($result);
+    mysqli_stmt_close($stmt);
 
+    if ($user && password_verify($password, $user['password'])) {
+        session_regenerate_id(true);
+        $_SESSION['log']  = true;
+        $_SESSION['user'] = ['id' => $user['id'], 'email' => $user['email']];
+        redirect('index.php');
+    }
 
+    $error = 'Email atau password salah.';
+}
 
+// Sudah login? langsung ke halaman utama
+if (isset($_SESSION['log'])) {
+    redirect('index.php');
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -50,13 +54,17 @@ if(!isset($_SESSION['log'])){
                                 <div class="card shadow-lg border-0 rounded-lg mt-5">
                                     <div class="card-header"><h3 class="text-center font-weight-light my-4">Login</h3></div>
                                     <div class="card-body">
+                                        <?php if ($error !== '') : ?>
+                                            <div class="alert alert-danger" role="alert"><?php echo e($error); ?></div>
+                                        <?php endif; ?>
                                         <form method="post">
+                                            <?php echo csrf_field(); ?>
                                             <div class="form-floating mb-3">
-                                                <input class="form-control" name="email" id="inputEmail" type="email" placeholder="name@example.com" />
+                                                <input class="form-control" name="email" id="inputEmail" type="email" placeholder="name@example.com" required />
                                                 <label for="inputEmail">Email address</label>
                                             </div>
                                             <div class="form-floating mb-3">
-                                                <input class="form-control" name="password" id="inputPassword" type="password" placeholder="Password" />
+                                                <input class="form-control" name="password" id="inputPassword" type="password" placeholder="Password" required />
                                                 <label for="inputPassword">Password</label>
                                             </div>
                                             <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
@@ -65,7 +73,7 @@ if(!isset($_SESSION['log'])){
                                         </form>
                                     </div>
                                     <div class="card-footer text-center py-3">
-                                        <div class="small"><a href="register.html">Need an account? Sign up!</a></div>
+                                        <div class="small text-muted">Akun demo: <strong>admin@stockbarang.local</strong> / <strong>admin</strong></div>
                                     </div>
                                 </div>
                             </div>
